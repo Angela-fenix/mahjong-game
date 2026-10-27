@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>台灣麻將（簡易版）</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main id="table">
+    <section id="seat2" class="seat ai"></section>
+    <div id="river2" class="river zone"></div>
+    <section id="seat3" class="seat ai"></section>
+    <div id="river3" class="river zone"></div>
+    <section id="seat1" class="seat ai"></section>
+    <div id="river1" class="river zone"></div>
+    <div id="mid">
+      <div id="wall"></div>
+      <div id="status"></div>
+      <div id="actions"></div>
+    </div>
+    <div id="river0" class="river zone"></div>
+    <section id="seat0" class="seat me"></section>
+  </main>
+  <button id="menu" type="button">戰績</button>
+  <button id="sound" type="button">🔊 音效</button>
+  <div id="intro" class="overlay" hidden></div>
+  <div id="result" class="overlay" hidden></div>
+  <div id="stats" class="overlay" hidden></div>
+  <div id="begin" class="overlay">
+    <div class="card">
+      <h2>台灣麻將（簡易版）</h2>
+      <p>單局制・你與三家電腦對戰。擲骰決定莊家後開始。</p>
+      <p class="lvbox">難度：<button id="lvNormal" type="button" class="lv">普通</button><button id="lvHard" type="button"
+          class="lv">困難</button></p>
+          
+      <button id="go" type="button">開始新遊戲</button>
+      <button id="resume" type="button" hidden>繼續上次遊戲</button>
+      <button id="statsBtn" type="button">戰績</button>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

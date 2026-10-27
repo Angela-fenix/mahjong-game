@@ -1,0 +1,800 @@
+* {
+  box-sizing: border-box
+}
+
+:root {
+  --mw: 36px;
+  /* 自己手牌的牌寬 */
+  --sw: 20px;
+  /* 牌河的牌寬 */
+  --aw: 20px;
+  /* 電腦面板內（副露、花牌）的牌寬 */
+  --pw: 244px;
+  /* 上、下、對家面板寬 */
+  --ph: 184px;
+  /* 上、下、對家面板高 */
+  --rc: 6;
+  /* 牌河每排張數 */
+  --rr: 4;
+  /* 牌河排數 */
+  --hc: 9;
+  /* 電腦手牌每排張數（排滿第一排再排第二排） */
+  --sh: calc(var(--sw) / .765);
+  --rw: calc(var(--rc) * (var(--sw) + 2px) + 7px);
+  --rh: calc(var(--rr) * (var(--sh) + 2px) + 7px);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 40%, #2b6b53, #173d30);
+  color: #f4ecd4;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif
+}
+
+/* ===== 版面（電腦）：每個元素直接放進格線，各模式再重新指定位置 ===== */
+#table {
+  display: grid;
+  gap: 8px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px;
+  grid-template-columns: var(--pw) var(--rw) minmax(0, 1fr) var(--rw) var(--pw);
+  grid-template-areas: ". . p2 . ." "p3 r3 r2 r1 p1" "p3 r3 mid r1 p1" "p3 r3 r0 r1 p1" "me me me me me"
+}
+
+#seat2 {
+  grid-area: p2;
+  justify-self: center
+}
+
+#river2 {
+  grid-area: r2
+}
+
+#seat3 {
+  grid-area: p3
+}
+
+#river3 {
+  grid-area: r3
+}
+
+#seat1 {
+  grid-area: p1
+}
+
+#river1 {
+  grid-area: r1
+}
+
+#mid {
+  grid-area: mid
+}
+
+#river0 {
+  grid-area: r0
+}
+
+#seat0 {
+  grid-area: me
+}
+
+#seat3,
+#seat1,
+#river3,
+#river1 {
+  align-self: start
+}
+
+#river2,
+#river0,
+#mid {
+  justify-self: center
+}
+
+#mid {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center
+}
+
+#status {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  min-height: 24px
+}
+
+.seat {
+  position: relative;
+  background: rgba(0, 0, 0, .2);
+  border-radius: 10px;
+  padding: 8px;
+  overflow: hidden
+}
+
+.seat.ai {
+  width: var(--pw);
+  height: var(--ph)
+}
+
+.zone {
+  width: var(--rw);
+  height: var(--rh);
+  background: rgba(244, 236, 212, .14);
+  border-radius: 8px;
+  padding: 3px;
+  overflow: hidden
+}
+
+.info {
+  font-weight: 700
+}
+
+.hand,
+.side,
+.river {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-content: flex-start
+}
+
+.hand,
+.side {
+  margin-top: 6px
+}
+
+.hand.ai {
+  display: grid;
+  grid-template-columns: repeat(var(--hc), minmax(0, 1fr))
+}
+
+.meld {
+  display: flex;
+  gap: 1px;
+  margin-right: 6px
+}
+
+/* ===== 牌（使用圖片） ===== */
+.t {
+  display: block;
+  width: var(--mw);
+  aspect-ratio: .765;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #f4f4f1;
+  box-shadow: 0 3px 0 #b6a97f
+}
+
+.t img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none
+}
+
+.t.sm {
+  width: var(--sw);
+  border-radius: 3px;
+  box-shadow: 0 2px 0 #b6a97f
+}
+
+.seat.ai .t.sm {
+  width: var(--aw)
+}
+
+.seat.ai .hand.ai .t {
+  width: 100%
+}
+
+.back {
+  background: repeating-linear-gradient(45deg, #2f8a6c 0 4px, #277759 4px 8px);
+  box-shadow: 0 2px 0 #1a4d3a
+}
+
+.t.mine {
+  cursor: pointer;
+  transition: transform .12s
+}
+
+.t.mine:hover {
+  transform: translateY(-6px)
+}
+
+.tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: #b3261e;
+  color: #fff;
+  font-size: 14px;
+  animation: pop .25s ease-out
+}
+
+@keyframes pop {
+  from {
+    transform: scale(.4);
+    opacity: 0
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1
+  }
+}
+
+#wall {
+  font-size: 14px;
+  opacity: .85
+}
+
+#actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center
+}
+
+button {
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: #f4ecd4;
+  color: #173d30;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #b6a97f
+}
+
+button:focus-visible,
+.t.mine:focus-visible {
+  outline: 3px solid #ffd166
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, .65);
+  padding: 16px
+}
+
+.overlay[hidden] {
+  display: none
+}
+
+#begin {
+  z-index: 11
+}
+
+.card {
+  background: #f4ecd4;
+  color: #222;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  text-align: center
+}
+
+.card h2 {
+  margin: 0 0 8px
+}
+
+.card .river {
+  margin: 8px 0;
+  justify-content: center
+}
+
+#result .card {
+  text-align: left
+}
+
+/* ===== 手機直向／窄視窗：三家牌河移到各自面板下方，全部放在同一頁 ===== */
+@media(max-width:979px) and (min-height:521px) {
+  :root {
+    --mw: 38px;
+    --sw: 20px;
+    --aw: 11px;
+    --ph: 112px;
+    --hc: 8
+  }
+
+  #table {
+    max-width: none;
+    padding: 6px;
+    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas: "p3 p2 p1" "r3 r2 r1" "mid mid mid" "r0 r0 r0" "me me me"
+  }
+
+  .seat.ai {
+    width: auto
+  }
+
+  #seat2,
+  #river2,
+  #river0,
+  #mid {
+    justify-self: stretch
+  }
+
+  .zone {
+    width: auto
+  }
+
+  #river3,
+  #river2,
+  #river1 {
+    height: calc(4 * (var(--sh) + 2px) + 7px)
+  }
+
+  #river0 {
+    height: calc(2 * (var(--sh) + 2px) + 7px)
+  }
+
+  .seat {
+    padding: 6px
+  }
+
+  .info {
+    font-size: 12px
+  }
+
+  .hand,
+  .side {
+    margin-top: 3px
+  }
+
+  .hand.me {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr))
+  }
+
+  .hand.me .t {
+    width: 100%
+  }
+
+  #status {
+    font-size: 15px;
+    min-height: 20px
+  }
+
+  .tag {
+    font-size: 11px;
+    padding: 0 6px;
+    margin-left: 4px
+  }
+}
+
+/* ===== 手機橫向：側邊面板縮窄貼齊兩側，中間牌河加寬、牌盡量放大，整頁不滾動 ===== */
+@media(max-height:520px) {
+  :root {
+    --mw: clamp(20px, 7.4vh, 30px);
+    --sw: clamp(11px, 5.2vh, 19px);
+    --aw: clamp(9px, 3vh, 12px);
+    --mw: clamp(20px, 7.4dvh, 30px);
+    --sw: clamp(11px, 5.2dvh, 19px);
+    --aw: clamp(9px, 3dvh, 12px);
+    --pw: 104px;
+    --hc: 8;
+    --rc: 5
+  }
+
+  html,
+  body {
+    height: 100%;
+    overflow: hidden
+  }
+
+  body {
+    min-height: 0
+  }
+
+  #table {
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    padding: 4px;
+    gap: 3px;
+    align-content: space-between
+  }
+
+  #seat3 {
+    justify-self: start
+  }
+
+  #seat1 {
+    justify-self: end
+  }
+
+  .seat {
+    padding: 3px 4px
+  }
+
+  .seat.ai {
+    height: auto
+  }
+
+  #seat2 {
+    width: 100%;
+    max-width: 360px
+  }
+
+  #seat2 .hand.ai {
+    --hc: 17
+  }
+
+  .info {
+    font-size: 11px
+  }
+
+  .hand,
+  .side {
+    margin-top: 2px
+  }
+
+  #river2,
+  #river0 {
+    width: 100%;
+    justify-self: stretch;
+    height: calc(2 * (var(--sh) + 2px) + 7px)
+  }
+
+  #river3,
+  #river1 {
+    height: auto;
+    align-self: stretch
+  }
+
+  .zone {
+    padding: 2px
+  }
+
+  #mid {
+    gap: 2px
+  }
+
+  #wall {
+    font-size: 10px
+  }
+
+  #status {
+    font-size: 12px;
+    line-height: 1.2;
+    min-height: 16px
+  }
+
+  button {
+    padding: 4px 10px;
+    font-size: 13px;
+    box-shadow: none
+  }
+
+  .tag {
+    font-size: 10px;
+    padding: 0 6px;
+    margin-left: 4px
+  }
+
+  .t,
+  .t.sm {
+    box-shadow: none
+  }
+}
+
+/* ===== 莊家標示、浮水印、選單、戰績 ===== */
+.seat.dealer {
+  box-shadow: 0 0 0 2px #ffd166, 0 0 16px rgba(255, 209, 102, .55)
+}
+
+.badge {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7em;
+  height: 1.7em;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: #ffd166;
+  color: #8a1c14;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 0 0 2px #8a1c14 inset
+}
+
+.mark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 56px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: rgba(255, 240, 170, .6);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .55);
+  pointer-events: none;
+  animation: markin .25s ease-out
+}
+
+@keyframes markin {
+  from {
+    transform: scale(1.7);
+    opacity: 0
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1
+  }
+}
+
+#menu,
+#sound {
+  position: fixed;
+  right: 6px;
+  z-index: 5;
+  padding: 4px 10px;
+  font-size: 13px;
+  box-shadow: none;
+  opacity: .85
+}
+
+#menu {
+  bottom: 40px
+}
+
+#sound {
+  bottom: 6px
+}
+
+#stats {
+  z-index: 12
+}
+
+#stats .card {
+  text-align: left
+}
+
+.card button {
+  margin: 4px
+}
+
+.hist {
+  margin: 8px 0;
+  padding-left: 18px;
+  font-size: 14px;
+  max-height: 40vh;
+  overflow: auto
+}
+
+@media(max-width:979px) and (min-height:521px) {
+  .mark {
+    font-size: 36px;
+    letter-spacing: 0
+  }
+}
+
+@media(max-height:520px) {
+  .mark {
+    font-size: 26px;
+    letter-spacing: 0
+  }
+
+  .badge {
+    font-size: 11px;
+    margin-left: 4px
+  }
+}
+
+/* ===== 戰績按鈕在右下角：直向／桌面預留空間避免蓋到手牌 ===== */
+@media(min-height:521px) {
+  #table {
+    padding-bottom: 80px
+  }
+}
+
+/* ===== 浮水印只播一次進場動畫 ===== */
+.mark.still {
+  animation: none
+}
+
+/* ===== 手機橫向：玩家手牌與副露置中 ===== */
+@media(max-height:520px) {
+
+  .hand.me,
+  #seat0 .side {
+    justify-content: center
+  }
+
+  #menu,
+  #sound {
+    padding: 2px 8px;
+    font-size: 11px
+  }
+
+  #menu {
+    bottom: 28px
+  }
+
+  .die {
+    width: 52px;
+    height: 52px;
+    font-size: 44px
+  }
+}
+
+/* ===== 開局動畫（M6）：擲骰、洗牌、堆牌開門 ===== */
+#intro {
+  z-index: 9;
+  background: rgba(0, 0, 0, .45);
+  cursor: pointer
+}
+
+.introbox {
+  text-align: center;
+  color: #f4ecd4
+}
+
+.introbox p {
+  margin: 10px 0 0;
+  font-size: 20px;
+  font-weight: 700
+}
+
+.dice {
+  display: flex;
+  gap: 12px;
+  justify-content: center
+}
+
+.die {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  font-size: 72px;
+  line-height: 1;
+  background: #f4f4f1;
+  color: #222;
+  border-radius: 14px;
+  box-shadow: 0 4px 0 #b6a97f
+}
+
+.shuf {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  height: 80px
+}
+
+.shuf .t {
+  width: 36px;
+  transform: translate(var(--dx), var(--dy)) rotate(var(--r));
+  animation: shuf .15s ease-out
+}
+
+@keyframes shuf {
+  from {
+    transform: none
+  }
+}
+
+.wring {
+  --b: clamp(5px, 2.2vmin, 12px);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto 1fr auto;
+  gap: 4px;
+  padding: 10px;
+  background: rgba(0, 0, 0, .25);
+  border-radius: 12px
+}
+
+.wside {
+  display: flex;
+  gap: 1px
+}
+
+.wt {
+  grid-column: 1/4;
+  grid-row: 1;
+  justify-content: center
+}
+
+.wb {
+  grid-column: 1/4;
+  grid-row: 3;
+  justify-content: center
+}
+
+.wl {
+  grid-column: 1;
+  grid-row: 2;
+  flex-direction: column
+}
+
+.wr {
+  grid-column: 3;
+  grid-row: 2;
+  flex-direction: column
+}
+
+.wmid {
+  grid-column: 2;
+  grid-row: 2;
+  place-self: center;
+  padding: 0 10px;
+  font-weight: 700
+}
+
+.stk {
+  display: block;
+  background: #f4ecd4;
+  border-radius: 2px;
+  box-shadow: 0 1px 0 #b6a97f;
+  opacity: 0;
+  animation: stk .1s forwards;
+  animation-delay: calc(var(--i) * 14ms)
+}
+
+.wt .stk,
+.wb .stk {
+  width: calc(var(--b) * 1.2);
+  height: calc(var(--b) * 1.8)
+}
+
+.wl .stk,
+.wr .stk {
+  width: calc(var(--b) * 1.8);
+  height: calc(var(--b) * 1.2)
+}
+
+.wside.open .stk {
+  background: #ffd166
+}
+
+@keyframes stk {
+  from {
+    opacity: 0;
+    transform: scale(.3)
+  }
+
+  to {
+    opacity: 1;
+    transform: none
+  }
+}
+
+/* ===== 玩家手牌與副露置中（電腦、手機橫向；一排放得下時才看得出差別） ===== */
+.hand.me,
+#seat0 .side {
+  justify-content: center
+}
+
+/* ===== 難度選擇 ===== */
+.lvbox {
+  margin: 8px 0
+}
+
+.lv.on {
+  background: #173d30;
+  color: #f4ecd4;
+  box-shadow: 0 3px 0 #0b2219
+}
+
