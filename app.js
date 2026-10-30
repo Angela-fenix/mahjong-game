@@ -24,7 +24,7 @@ function setLevel(lv) {
   $('lvNormal').className = 'lv' + (lv === 'normal' ? ' on' : '');
   $('lvHard').className = 'lv' + (lv === 'hard' ? ' on' : '');
 }
-const SAVED = ['dealer', 'wall', 'hands', 'melds', 'flowers', 'river', 'pass', 'called', 'discards', 'draws', 'level'];
+const SAVED = ['dealer', 'wall', 'hands', 'melds', 'flowers', 'river', 'pass', 'called', 'discards', 'draws', 'level', 'round'];
 // 每個回合開始時自動存檔（cur＝輪到誰、mode＝該回合的進行方式）
 function saveGame(cur, mode) {
   const g = {}; SAVED.forEach(k => { g[k] = G[k]; });
@@ -86,8 +86,7 @@ const BACK = '<span class="t back sm"></span>';
 const meldTiles = m => m.tiles || (m.k === 'g' ? [m.t, m.t, m.t, m.t] : m.k === 'p' ? [m.t, m.t, m.t] : [m.t, m.t + 1, m.t + 2]);
 // 暗槓：電腦家四張全部蓋放（規格書：暗槓蓋放）；玩家自己的暗槓兩端蓋牌、中間兩張亮出（看得出是哪張，也和明槓分得開）；其餘面子一律亮出
 const meldHTML = (m, hide, own) =>
-  `<span class="meld">${m.k === 'g' && !m.open ?
-    (hide ? BACK.repeat(4) : own ? BACK + small([m.t, m.t]) + BACK : small(meldTiles(m))) : small(meldTiles(m))}</span>`;
+  `<span class="meld">${m.k === 'g' && !m.open ? (hide ? BACK.repeat(4) : own ? BACK + small([m.t, m.t]) + BACK : small(meldTiles(m))) : small(meldTiles(m))}</span>`;
 // 浮水印：每次 render 都會重建 DOM，所以只有第一次要播進場動畫，之後加上 still 不再重播
 function markHTML(m) {
   const cls = m.shown ? 'mark still' : 'mark'; m.shown = true;
@@ -133,7 +132,7 @@ function render() {
       (G.mark[s] ? markHTML(G.mark[s]) : '');
     $('river' + s).innerHTML = small(G.river[s]);
   }
-  $('wall').textContent = `牌牆剩 ${G.wall.length} 張・圈風：東${G.level ? `・難度：${LV[G.level]}` : ''}`;
+  $('wall').textContent = `牌牆剩 ${G.wall.length} 張・圈風：${WIND[G.round || 0]}${G.level ? `・難度：${LV[G.level]}` : ''}`;
 }
 
 // ===== 玩家輸入 =====
@@ -262,9 +261,11 @@ function aiDiscardHard(s) {
       }
       c[x.t]++;
     }
+
     let sc = -(x.sh - minSh) * shPen + uk - W * danger(s, x.t, seen) + Math.random() * .5;
-    if (x.t >= 27 && c[x.t] >= 2 && (x.t >= 31 || x.t === 27 || x.t === wind)) sc -= 8; // 有台的風牌、箭牌對子要留
+    if (x.t >= 27 && c[x.t] >= 2 && (x.t >= 31 || x.t === 27 + (G.round || 0) || x.t === wind)) sc -= 8; // 有台的風牌、箭牌對子要留
     else if (x.t >= 27 && c[x.t] === 1) sc += 2; // 孤張字牌先打
+
     if (flush && x.t < 27) sc += suit(x.t) === main ? -6 : 6;
     if (sc > bs) { bs = sc; best = x; }
   });
@@ -278,7 +279,7 @@ function aiPong(s, d, kong) {
     const dl = meldDelta(s, [d, d]); return Math.random() < (dl < 0 ? .8 : dl === 0 ? .35 : 0) ? 1 : 0;
   }
   const open = G.melds[s].length > 0;
-  const worth = d >= 31 || d === 27 || d === 27 + (s - G.dealer + 4) % 4;
+  const worth = d >= 31 || d === 27 + (G.round || 0) || d === 27 + (s - G.dealer + 4) % 4;
   if (kong && (worth || open)) return 2;
   const dl = meldDelta(s, [d, d]);
   if (worth) return dl <= 0 ? 1 : 0;
@@ -464,16 +465,29 @@ function finish(ws, d, from) {
   const delta = [0, 0, 0, 0], sums = []; // 簡易結算：每台 1 分；自摸三家各付、放槍由放槍者付
   if (!ws.length) out = '<h2>流局</h2><p>牌牆剩 16 張，本局無人胡牌。</p>';
   ws.forEach(w => {
-    let r, shown, names;
+    let r, shown, names, shownHTML, winNote = '';
     if (w.flower) { // 八仙過海、七搶一：以 8 台計，不另計花牌台
-      r = { sum: 8 }; shown = G.flowers[w.s].slice().sort((a, b) => a - b); names = `${w.flower} 8 台`;
+      r = { sum: 8 }; shown = G.flowers[w.s].slice().sort((a, b) => a - b); names = `${w.flower} 8 台`; shownHTML = small(shown);
     } else {
       const h = G.hands[w.s], tiles = w.self ? h : h.concat(d), win = w.self ? h[h.length - 1] : d;
+      const sp = specialWin(w);
       r = calcTai({
-        tiles, melds: G.melds[w.s], flowers: G.flowers[w.s], seat: (w.s - G.dealer + 4) % 4,
-        self: w.self, win, kong: !!w.kong, rob: !!w.rob, special: specialWin(w), last: w.self && !w.kong && G.wall.length === 16
+        tiles, melds: G.melds[w.s],
+        flowers: G.flowers[w.s],
+        seat: (w.s - G.dealer + 4) % 4,
+        self: w.self, win,
+        kong: !!w.kong,
+        rob: !!w.rob,
+        river: !w.self && G.wall.length === 16,
+        special: sp,
+        round: G.round || 0,
+        last: w.self && !w.kong && G.wall.length === 16
       });
       shown = tiles.slice().sort((a, b) => a - b);
+      // 把「胡的那張牌」標出來（黃框＋「胡」字）；天胡沒有胡的那張牌，不標
+      let marked = sp === '天胡';
+      shownHTML = shown.map(t => { const hit = !marked && t === win; if (hit) marked = true; return tileHTML(t, null, hit ? 'sm win' : 'sm'); }).join('');
+      if (sp !== '天胡') winNote = `<p>胡的牌：${name(win)}（${w.self ? '自摸' : `${SEAT[from]}打出`}，標示黃框）</p>`;
       names = r.list.map(e => `${e.n} ${e.t} 台`).join('、') || '無台';
     }
     sums.push(r.sum);
@@ -482,7 +496,7 @@ function finish(ws, d, from) {
     const pay = w.self ? '其餘三家各付' : `${SEAT[from]}放槍，付`;
     const meldsHTML = w.flower ? '' : G.melds[w.s].map(m => meldHTML(m, false)).join('');
     out += `<h2>${SEAT[w.s]}${w.flower ? '・' + w.flower : w.self ? '自摸' : '胡牌'}</h2>` +
-      `<div class="river">${small(shown)}${meldsHTML}</div>` +
+      `<div class="river">${shownHTML}${meldsHTML}</div>` + winNote +
       `<p>${names}</p><p><b>共 ${r.sum} 台</b>・${pay} ${r.sum} 分</p>`;
   });
   if (ws.length) out += `<p>分數變化：${SEAT.map((n, q) => `${n} ${delta[q] > 0 ? '+' : ''}${delta[q]}`).join('、')}</p>`;
@@ -574,7 +588,14 @@ async function start() {
   $('result').hidden = true; store.del(SAVE);
   const dice = [r6(), r6(), r6()], sum = dice.reduce((a, b) => a + b);
   Object.assign(G, {
-    dealer: (sum - 1) % 4, wall: newWall(), turn: -1, pass: false, pick: null, tag: null, flowerWin: null, dealerShown: false, skip: !!G.auto, level, hard: hardSeats(level),
+    dealer: (sum - 1) % 4,
+    wall: newWall(),
+    turn: -1,
+    pass: false,
+    pick: null, tag: null, flowerWin: null,
+    dealerShown: false,
+    skip: !!G.auto, round: ((store.get(STATS) || {}).games || 0) % 4, level,
+    hard: hardSeats(level),
     called: false, discards: 0, draws: [0, 0, 0, 0],
     hands: [[], [], [], []], melds: [[], [], [], []], flowers: [[], [], [], []], river: [[], [], [], []],
     mark: [null, null, null, null]
@@ -608,7 +629,11 @@ async function resume() {
   const sv = store.get(SAVE);
   if (!sv || sv.v !== 1) return start();
   $('result').hidden = true;
-  Object.assign(G, { called: false, discards: 0, draws: [0, 0, 0, 0], level: 'normal' }, sv.g, { dealerShown: true, turn: -1, pick: null, tag: null, flowerWin: null, mark: [null, null, null, null] });
+  Object.assign(
+    G, { called: false, discards: 0, draws: [0, 0, 0, 0], level: 'normal', round: 0 },
+    sv.g, { dealerShown: true, turn: -1, pick: null, tag: null, flowerWin: null, mark: [null, null, null, null] }
+  );
+
   G.hard = hardSeats(G.level);
   render(); say('已讀取存檔，繼續遊戲');
   await sleep(800);

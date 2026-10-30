@@ -33,7 +33,8 @@ const run = c => vm.runInContext(c, ctx);
 run('G.auto = true; G.debug = true;');
 
 (async () => {
-  const N = +process.argv[2] || 300, st = {}, kinds = ['流局', '自摸', '胡牌', '八仙過海', '七搶一', '搶槓', '槓上自摸', '天胡', '地胡', '人胡', '平胡'];
+    const N = +process.argv[2] || 300, st = {}, kinds = ['流局', '自摸', '胡牌', '八仙過海', '七搶一',
+       '搶槓', '槓上自摸', '天胡', '地胡', '人胡', '平胡', '三暗刻', '四暗刻', '五暗刻'];
   const t0 = Date.now(); let kongs = 0;
   for (let i = 0; i < N; i++) {
     await vm.runInContext('start()', ctx);
@@ -41,7 +42,8 @@ run('G.auto = true; G.debug = true;');
 
     if (run('total()') !== 144)
       throw new Error('牌數不是 144');
-    kinds.forEach(k => { const hit = /^(天胡|地胡|人胡|平胡)$/.test(k) ? new RegExp(k + ' \\d+ 台').test(html) : html.includes(k); if (hit) st[k] = (st[k] || 0) + 1; });
+    kinds.forEach(k => { const hit = /^(天胡|地胡|人胡|平胡|三暗刻|四暗刻|五暗刻)$/.test(k) ? 
+      new RegExp(k + ' \\d+ 台').test(html) : html.includes(k); if (hit) st[k] = (st[k] || 0) + 1; });
     kongs += run('G.melds.flat().filter(m=>m.k==="g").length');
 
     if (!/流局|自摸|胡牌|八仙過海|七搶一/.test(html))

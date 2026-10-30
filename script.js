@@ -63,8 +63,9 @@ const waits = (tiles, melds) => {
 
 // ===== 台數計算（依規格書階段 1 牌型與 M7 天胡、地胡、人胡；八仙過海、七搶一在 app.js 處理；另加平胡） =====
 // melds 的 k：'p' 碰、'c' 吃、'g' 槓（open=false 為暗槓）；槓算 1 組面子，視為刻子
-// x: { tiles(含胡的那張), melds, flowers, seat(門風 0-3, 0=莊家), self, win, last, kong(槓上自摸), rob(搶槓),
-//      special('天胡'|'地胡'|'人胡') }
+// x: { tiles(含胡的那張), melds, flowers, seat(門風 0-3, 0=莊家), 
+// self, win, last, kong(槓上自摸), rob(搶槓), river(河底撈魚：最後一張打出的牌),
+//      special('天胡'|'地胡'|'人胡'), round(圈風 0-3：東南西北，預設 0) }
 const isPung = s => s.k === 'p' || s.k === 'g';
 
 function calcTai(x) {
@@ -92,6 +93,7 @@ function calcTai(x) {
     if (x.last && x.self) add('海底撈月', 1);
     if (x.kong && x.self) add('槓上自摸', 1);
     if (x.rob) add('搶槓', 1);
+    if (x.river && !x.self) add('河底撈魚', 1); // 最後一張牌被打出後放槍胡
 
     // 三元牌
     const dr = pungs.filter(s => s.t >= 31).length;
@@ -108,7 +110,7 @@ function calcTai(x) {
     if (wp === 4) add('大四喜', 16);
     else if (wp === 3 && d.pair >= 27 && d.pair < 31) add('小四喜', 8);
     else pungs.forEach(s => {
-      if (s.t === 27) add('場風', 1);
+      if (s.t === 27 + (x.round || 0)) add('場風', 1);
       if (s.t === 27 + x.seat) add('本風', 1);
     });
 
@@ -122,12 +124,18 @@ function calcTai(x) {
 
     if (sets.every(isPung)) add('碰碰胡', 4);
 
-    // 暗刻（放槍胡的那組刻子不算暗刻）
+    // 暗刻（暗槓算暗刻；吃、碰、明槓不算）。放槍胡時，靠別人打出的牌湊成的那組刻子不算暗刻；
+    // 但胡的牌若也能算在順子或將牌裡，刻子仍是暗刻（取對自己有利的解釋）
     let cp = d.sets.filter(s => s.k === 'p').length + x.melds.filter(m => m.k === 'g' && !m.open).length;
-    if (!x.self && d.sets.some(s => s.k === 'p' && s.t === x.win)) cp--;
+    if (!x.self && d.sets.some(s => s.k === 'p' && s.t === x.win)) {
+      const alt = d.pair === x.win || d.sets.some(s => s.k === 'c' && x.win >= s.t && x.win <= s.t + 2);
+      if (!alt) cp--;
+    }
 
+    // 五暗刻、四暗刻、三暗刻：取高者（三暗刻只要有 3 組暗刻，其餘面子可以是順子，也可以靠吃碰完成）
     if (cp === 5) add('五暗刻', 8);
     else if (cp === 4) add('四暗刻', 5);
+    else if (cp === 3) add('三暗刻', 2);
 
     // 花牌
     x.flowers.filter(f => (f - 34) % 4 === x.seat).forEach(() => add('正花', 1));
@@ -195,6 +203,6 @@ function shanten(c, nm) {
     const v = 2 * N - 2 * m - Math.min(dp[m][p], N - m) - p;
     if (v < best) best = v;
   }
-  
+
   return best;
 }

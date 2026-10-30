@@ -798,3 +798,9 @@ button:focus-visible,
   box-shadow: 0 3px 0 #0b2219
 }
 
+/* ===== 結算畫面：標示胡的那張牌 ===== */
+.t.win {
+  position: relative;
+  outline: 3px solid #ffb703;
+  outline-offset: -3px
+}
