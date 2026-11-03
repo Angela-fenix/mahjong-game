@@ -4,7 +4,10 @@ const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SEAT = ['你', '下家', '對家', '上家'];
 const G = {};
-const say = m => { $('status').textContent = m; };
+const say = (m, hint) => { // hint：附加在後面的提示行（獨立一行、不同顏色）
+  const e = $('status'); e.textContent = m;
+  if (hint) { const h = document.createElement('span'); h.className = 'hint'; h.textContent = hint; e.append(h); }
+};
 const ai = s => s !== 0 || !!G.auto; // 該座位是否由電腦操作（G.auto 僅供自動模擬測試用）
 
 // ===== 存檔與戰績（M8）：使用瀏覽器 localStorage =====
@@ -73,7 +76,7 @@ function sfx(n) { const a = audio(); if (a && SFX[n]) SFX[n](a, a.currentTime); 
 function mark(s, text) {
   sfx(text === '胡' || text === '自摸' ? 'win' : 'call');
   if (s === 0) return;
-  const m = { text }; G.mark[s] = m; render();
+  const m = { text, big: text === '胡' || text === '自摸' }; G.mark[s] = m; render();
   setTimeout(() => { if (G.mark[s] === m) { G.mark[s] = null; render(); } }, 1000);
 }
 
@@ -89,7 +92,7 @@ const meldHTML = (m, hide, own) =>
   `<span class="meld">${m.k === 'g' && !m.open ? (hide ? BACK.repeat(4) : own ? BACK + small([m.t, m.t]) + BACK : small(meldTiles(m))) : small(meldTiles(m))}</span>`;
 // 浮水印：每次 render 都會重建 DOM，所以只有第一次要播進場動畫，之後加上 still 不再重播
 function markHTML(m) {
-  const cls = m.shown ? 'mark still' : 'mark'; m.shown = true;
+  const cls = (m.shown ? 'mark still' : 'mark') + (m.big ? ' big' : ''); m.shown = true;
   return `<div class="${cls}">${m.text}</div>`;
 }
 
@@ -118,6 +121,8 @@ async function flyDraw(i) {
 }
 
 function render() {
+  syncTenpai();
+
   for (let s = 0; s < 4; s++) {
     const h = G.hands[s];
     const order = h.map((_, i) => i).sort((a, b) => h[a] - h[b]);
@@ -127,8 +132,18 @@ function render() {
     const melds = G.melds[s].map(m => meldHTML(m, s !== 0, s === 0)).join('');
     $('seat' + s).className = 'seat ' + (s ? 'ai' : 'me') + (G.dealerShown && s === G.dealer ? ' dealer' : '');
     $('seat' + s).innerHTML =
-      `<div class="info">${SEAT[s]}${G.dealerShown ? `・${WIND[(s - G.dealer + 4) % 4]}風` : ''}${G.dealerShown && s === G.dealer ? '<span class="badge">莊</span>' : ''}${G.turn === s ? ' ◀' : ''}${G.tag && G.tag.s === s ? '<span class="tag">放槍！</span>' : ''}</div>` +
-      `<div class="hand ${s ? 'ai' : 'me'}">${hand}</div><div class="side">${melds}${small(G.flowers[s])}</div>` +
+      `<div class="info">${SEAT[s]}
+      ${G.dealerShown ? `・${WIND[(s - G.dealer + 4) % 4]}風` : ''}
+      ${G.dealerShown && s === G.dealer ? '<span class="badge">莊</span>' : ''}
+      ${tenpaiMark(s)}
+      ${G.turn === s ? ' ◀' : ''}
+      ${G.tag && G.tag.s === s ? '<span class="tag">放槍！</span>' : ''}
+      ${s === 0 ? tingPill() : ''}</div>` +
+
+      `<div class="hand ${s ? 'ai' : 'me'}">
+      ${hand}</div><div class="side">
+      ${melds}${small(G.flowers[s])}</div>` +
+
       (G.mark[s] ? markHTML(G.mark[s]) : '');
     $('river' + s).innerHTML = small(G.river[s]);
   }
@@ -204,6 +219,95 @@ function seenCounts(s) {
   G.hands[s].forEach(t => c[t]++);
   return c;
 }
+
+// ===== 聽牌標示：任一方（含電腦）聽牌，名稱旁顯示「聽」 =====
+// 3n+1 張（打完牌）：向聽數 0 ＝聽牌；3n+2 張（剛摸牌、尚未打出）：向聽數 ≤ 0 ＝打出某張後即聽牌
+const tenpaiMemo = new Map();
+function isTenpai(s) {
+  const h = G.hands[s], nm = G.melds[s].length, n = h.length - 3 * (5 - nm);
+  if ((n !== 1 && n !== 2) || h.some(isFlower)) return false;
+  const key = h.slice().sort((a, b) => a - b).join() + '/' + nm;
+  let v = tenpaiMemo.get(key);
+  if (v === undefined) {
+    const sh = shanten(counts(h), nm);
+    v = n === 1 ? sh === 0 : sh <= 0;
+    if (tenpaiMemo.size > 2000) tenpaiMemo.clear();
+    tenpaiMemo.set(key, v);
+  }
+  return v;
+}
+
+// 聽牌狀態（G.tingOn）：打完牌（3n+1 張）時才更新，摸牌後（3n+2 張）沿用先前狀態，標示才不會閃掉。
+// 由「沒聽」變成「聽」的那一刻，先在該家面板顯示 1 秒的「聽牌」浮水印（G.tingHold 期間先不顯示「聽」方塊），浮水印消失後才出現「聽」方塊
+function syncTenpai() {
+  if (G.auto || !(G.turn >= 0) || G.flowerWin || !G.hands) return;
+  if (!G.tingOn) G.tingOn = [];
+  if (!G.tingHold) G.tingHold = [false, false, false, false];
+
+  for (let s = 0; s < 4; s++) {
+    const n = G.hands[s].length - 3 * (5 - G.melds[s].length);
+    if (n !== 1 && !(n === 2 && G.tingOn[s] === undefined)) continue;
+
+    const t = isTenpai(s);
+    if (t && !G.tingOn[s]) { G.tingOn[s] = true; announceTenpai(s); }
+    else if (!t) G.tingOn[s] = false;
+  }
+}
+function announceTenpai(s, tries = 0) {
+  G.tingHold[s] = true;
+  if (G.mark[s] && tries < 10) // 等吃碰槓的浮水印先播完
+  { setTimeout(() => announceTenpai(s, tries + 1), 200); return; }
+  sfx('call');
+
+  const m = { text: '聽牌', big: true };
+  G.mark[s] = m;
+  render();
+
+  setTimeout(() => { if (G.mark[s] === m) G.mark[s] = null; G.tingHold[s] = false; render(); }, 1000);
+}
+function tenpaiMark(s) {
+  if (G.auto || !(G.turn >= 0) || G.flowerWin || (G.tingHold && G.tingHold[s])) return '';
+  const on = G.tingOn && G.tingOn[s] !== undefined ? G.tingOn[s] : isTenpai(s);
+  return on ? '<span class="tenpai">聽</span>' : '';
+}
+
+// ===== 玩家聽牌提醒：只用自己看得到的資訊（自己的手牌、副露、全場牌河與別家明的副露） =====
+const tingActive = () => !G.auto && G.turn >= 0 && !G.flowerWin && !!G.hands[0] && !G.hands[0].some(isFlower);
+// 差哪張牌：回傳 [{t, left}]，left＝這張牌在場上還看不到幾張（最多 4 張扣掉已看見的）
+function tingList(h, ms) {
+  const seen = seenCounts(0);
+  return waits(h, ms).map(t => ({ t, left: Math.max(0, 4 - seen[t]) }));
+}
+const tingText = l => l.map(x => `${name(x.t)}（剩 ${x.left}）`).join('、');
+// 手牌是 3n+1 張（打完牌、等別人出牌的狀態）且聽牌時，在自己名稱旁顯示「聽牌！差 …」
+function tingPill() {
+  if (!tingActive()) return '';
+  const h = G.hands[0], ms = G.melds[0];
+  if (h.length !== 3 * (5 - ms.length) + 1 || shanten(counts(h), ms.length) !== 0) return '';
+  return `<span class="ting">聽牌！差 ${tingText(tingList(h, ms))}</span>`;
+}
+// 輪到玩家出牌（手牌 3n+2 張）時：附在提示文字後，告訴你打哪張可以聽牌、差哪張（最多列 2 種，優先列剩餘張數多的）
+function tingHint() {
+  if (!tingActive()) return '';
+
+  const h = G.hands[0], ms = G.melds[0], c = counts(h), opts = [];
+  if (h.length !== 3 * (5 - ms.length) + 2) return '';
+
+  for (let t = 0; t < 34; t++) {
+    if (!c[t]) continue;
+    c[t]--; const ok = shanten(c, ms.length) === 0; c[t]++;
+    if (!ok) continue;
+    const rest = h.slice(); rest.splice(rest.indexOf(t), 1);
+    const l = tingList(rest, ms);
+    opts.push({ t, l, n: l.reduce((a, x) => a + x.left, 0) });
+  }
+
+  if (!opts.length) return '';
+  opts.sort((a, b) => b.n - a.n);
+
+  return '\n聽牌提示：' + opts.slice(0, 2).map(o => `打 ${name(o.t)} 差 ${o.l.map(x => name(x.t)).join('、')}`).join('；');
+}
+
 // 對手 o 離胡牌多近的粗略估計（0~1）：副露越多、牌牆越少越危險（只看得到公開資訊）
 function threat(o) {
   const late = 1 - Math.min(1, Math.max(0, G.wall.length - 16) / 60);
@@ -433,7 +537,7 @@ async function loop(cur = G.dealer, mode = 'first') {
         mode = 'kong'; continue; // 補牌後可再自摸（槓上自摸）、再槓
       }
     }
-    say(ai(cur) ? `${SEAT[cur]}思考中…` : '輪到你：點選一張牌打出');
+    say(ai(cur) ? `${SEAT[cur]}思考中…` : '輪到你：點選一張牌打出', ai(cur) ? '' : tingHint());
     const i = ai(cur) ? (await sleep(700), aiDiscard(cur)) : await pickTile();
     const d = G.hands[cur].splice(i, 1)[0];
     G.river[cur].push(d); sfx('discard'); G.discards++;
@@ -478,10 +582,10 @@ function finish(ws, d, from) {
         self: w.self, win,
         kong: !!w.kong,
         rob: !!w.rob,
-        river: !w.self && G.wall.length === 16,
+        river: !w.self && G.wall.length <= 16,
         special: sp,
         round: G.round || 0,
-        last: w.self && !w.kong && G.wall.length === 16
+        last: w.self && !w.kong && G.wall.length <= 16
       });
       shown = tiles.slice().sort((a, b) => a - b);
       // 把「胡的那張牌」標出來（黃框＋「胡」字）；天胡沒有胡的那張牌，不標

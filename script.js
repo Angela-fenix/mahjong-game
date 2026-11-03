@@ -88,7 +88,7 @@ function calcTai(x) {
         add('門清', 1); if (x.self) add('自摸', 1);
     }
 
-    if (x.melds.length === 5 && !x.self && x.melds.every(m => m.open)) add('全求人', 1);
+    if (x.melds.length === 5 && !x.self && x.melds.every(m => m.open)) add('全求人', 2);
     if (single) add('獨聽', 1);
     if (x.last && x.self) add('海底撈月', 1);
     if (x.kong && x.self) add('槓上自摸', 1);
@@ -139,10 +139,10 @@ function calcTai(x) {
 
     // 花牌
     x.flowers.filter(f => (f - 34) % 4 === x.seat).forEach(() => add('正花', 1));
-    [34, 38].forEach(b => { if ([0, 1, 2, 3].every(i => x.flowers.includes(b + i))) add('花槓', 1); });
+    [34, 38].forEach(b => { if ([0, 1, 2, 3].every(i => x.flowers.includes(b + i))) add('花槓', 2); });
 
-    // 平胡（2 台）：5 組面子全是順子（吃的也算；不能有刻子、槓）、將牌不是字牌、聽牌不是獨聽（要是兩面以上的聽法）
-    if (special !== '天胡' && !single && d.pair < 27 && sets.every(s => s.k === 'c')) add('平胡', 2);
+    // 平胡（2 台）：5 組面子全是順子（吃的也算；不能有刻子、槓）、將牌不是字牌、無花牌、聽牌不是獨聽（要是兩面以上的聽法）
+    if (special !== '天胡' && !single && !x.flowers.length && d.pair < 27 && sets.every(s => s.k === 'c')) add('平胡', 2);
 
     // 天胡、地胡、人胡：不另計莊家、自摸、門清、不求人；其餘牌型台仍可加
     if (special) {

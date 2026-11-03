@@ -19,9 +19,24 @@
   /* 牌河排數 */
   --hc: 9;
   /* 電腦手牌每排張數（排滿第一排再排第二排） */
+  --ow: 25px;
+  /* 自己面板內（副露、花牌）的牌寬 */
   --sh: calc(var(--sw) / .765);
   --rw: calc(var(--rc) * (var(--sw) + 2px) + 7px);
   --rh: calc(var(--rr) * (var(--sh) + 2px) + 7px);
+}
+
+/* ===== 桌面：依視窗大小等比放大（--u 為倍率，最小 1px＝原尺寸；寬、高都放得下才放大，不會出現捲軸） ===== */
+@media(min-width:980px) and (min-height:521px) {
+  :root {
+    --u: clamp(1px, min(calc((100vw - 56px) / 1044), calc((100vh - 80px) / 760)), 1.6px);
+    --mw: calc(36 * var(--u));
+    --sw: calc(20 * var(--u));
+    --aw: calc(20 * var(--u));
+    --ow: calc(25 * var(--u));
+    --pw: calc(244 * var(--u));
+    --ph: calc(192 * var(--u))
+  }
 }
 
 body {
@@ -190,6 +205,10 @@ body {
   width: var(--aw)
 }
 
+#seat0 .t.sm {
+  width: var(--ow)
+}
+
 .seat.ai .hand.ai .t {
   width: 100%
 }
@@ -307,9 +326,11 @@ button:focus-visible,
 @media(max-width:979px) and (min-height:521px) {
   :root {
     --mw: 38px;
-    --sw: 20px;
-    --aw: 11px;
-    --ph: 112px;
+    --sw: calc((100vw - 44px) / 15);
+    /* 三欄牌河每排剛好放 5 張 */
+    --aw: clamp(11px, 3.4vw, 15px);
+    --ow: clamp(22px, 6vw, 28px);
+    --ph: 118px;
     --hc: 8
   }
 
@@ -322,7 +343,14 @@ button:focus-visible,
   }
 
   .seat.ai {
-    width: auto
+    width: auto;
+    height: auto;
+    min-height: var(--ph)
+  }
+
+  #seat3,
+  #seat1 {
+    align-self: stretch
   }
 
   #seat2,
@@ -333,17 +361,22 @@ button:focus-visible,
   }
 
   .zone {
-    width: auto
+    width: auto;
+    padding: 1px
+  }
+
+  .river {
+    gap: 1px
   }
 
   #river3,
   #river2,
   #river1 {
-    height: calc(4 * (var(--sh) + 2px) + 7px)
+    height: calc(4 * var(--sh) + 7px)
   }
 
   #river0 {
-    height: calc(2 * (var(--sh) + 2px) + 7px)
+    height: calc(2 * var(--sh) + 5px)
   }
 
   .seat {
@@ -369,8 +402,8 @@ button:focus-visible,
   }
 
   #status {
-    font-size: 15px;
-    min-height: 20px
+    font-size: 17px;
+    min-height: 22px
   }
 
   .tag {
@@ -383,15 +416,17 @@ button:focus-visible,
 /* ===== 手機橫向：側邊面板縮窄貼齊兩側，中間牌河加寬、牌盡量放大，整頁不滾動 ===== */
 @media(max-height:520px) {
   :root {
-    --mw: clamp(20px, 7.4vh, 30px);
-    --sw: clamp(11px, 5.2vh, 19px);
-    --aw: clamp(9px, 3vh, 12px);
-    --mw: clamp(20px, 7.4dvh, 30px);
-    --sw: clamp(11px, 5.2dvh, 19px);
-    --aw: clamp(9px, 3dvh, 12px);
-    --pw: 104px;
+    --mw: clamp(20px, 7.8vh, 36px);
+    --sw: clamp(11px, 5.3vh, 23px);
+    --aw: clamp(9px, 3.2vh, 15px);
+    --ow: clamp(14px, 5.3vh, 26px);
+    --mw: clamp(20px, 7.8dvh, 36px);
+    --sw: clamp(11px, 5.3dvh, 23px);
+    --aw: clamp(9px, 3.2dvh, 15px);
+    --ow: clamp(14px, 5.3dvh, 26px);
+    --pw: clamp(104px, 14.5vw, 128px);
     --hc: 8;
-    --rc: 5
+    --rc: 4
   }
 
   html,
@@ -408,8 +443,8 @@ button:focus-visible,
     height: 100vh;
     height: 100dvh;
     max-width: none;
-    padding: 4px;
-    gap: 3px;
+    padding: 3px;
+    gap: 2px;
     align-content: space-between
   }
 
@@ -422,7 +457,7 @@ button:focus-visible,
   }
 
   .seat {
-    padding: 3px 4px
+    padding: 2px 4px
   }
 
   .seat.ai {
@@ -444,7 +479,7 @@ button:focus-visible,
 
   .hand,
   .side {
-    margin-top: 2px
+    margin-top: 1px
   }
 
   #river2,
@@ -473,7 +508,8 @@ button:focus-visible,
   }
 
   #status {
-    font-size: 12px;
+    font-size: clamp(12px, 3.5vh, 14px);
+    font-size: clamp(12px, 3.5dvh, 14px);
     line-height: 1.2;
     min-height: 16px
   }
@@ -803,4 +839,112 @@ button:focus-visible,
   position: relative;
   outline: 3px solid #ffb703;
   outline-offset: -3px
+}
+
+/* ===== 玩家聽牌提醒（顯示在自己名稱旁） ===== */
+.ting {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: #ffd166;
+  color: #8a1c14;
+  font-size: 18px;
+  font-weight: 700
+}
+
+@media(max-width:979px) and (min-height:521px) {
+  .ting {
+    font-size: 15px;
+    padding: 1px 9px;
+    margin-left: 4px
+  }
+}
+
+@media(max-height:520px) {
+  .ting {
+    font-size: 12px;
+    padding: 0 7px;
+    margin-left: 4px
+  }
+}
+
+/* ===== 提示文字（聽牌提示）可獨立成一行 ===== */
+#status {
+  white-space: pre-line
+}
+
+/* ===== 聽牌標示：紅底米字的圓角方塊（與金底紅字圓形的「莊」區隔） ===== */
+.tenpai {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7em;
+  height: 1.7em;
+  margin-left: 6px;
+  border-radius: 7px;
+  background: #b3261e;
+  color: #fff4cf;
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 0 0 2px rgba(255, 244, 207, .85) inset
+}
+
+@media(max-width:979px) and (min-height:521px) {
+  .tenpai {
+    font-size: 13px;
+    margin-left: 3px
+  }
+}
+
+@media(max-height:520px) {
+  .tenpai {
+    font-size: 11px;
+    margin-left: 3px;
+    border-radius: 4px
+  }
+}
+
+/* ===== 桌面放大：桌面寬度隨倍率增加（要放在 #table 基本規則之後才會生效） ===== */
+@media(min-width:980px) and (min-height:521px) {
+  #table {
+    max-width: calc(1100 * var(--u))
+  }
+}
+
+/* ===== 手機橫向且畫面很矮（高度 400px 以下）：牌略小一點，確保整頁放得下 ===== */
+@media(max-height:400px) {
+  :root {
+    --mw: clamp(20px, 7.5vh, 36px);
+    --ow: clamp(14px, 5vh, 26px);
+    --mw: clamp(20px, 7.5dvh, 36px);
+    --ow: clamp(14px, 5dvh, 26px)
+  }
+}
+
+/* ===== 提示行（聽牌提示）：金色、比主句略小，獨立一行 ===== */
+#status .hint {
+  color: #ffd166;
+  font-size: .88em
+}
+
+/* ===== 「聽牌」浮水印：比吃、碰、槓、胡的浮水印更大 ===== */
+.mark.big {
+  font-size: 80px;
+  letter-spacing: 6px
+}
+
+@media(max-width:979px) and (min-height:521px) {
+  .mark.big {
+    font-size: 48px;
+    letter-spacing: 0
+  }
+}
+
+@media(max-height:520px) {
+  .mark.big {
+    font-size: 36px;
+    letter-spacing: 0
+  }
 }

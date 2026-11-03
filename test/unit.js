@@ -54,9 +54,11 @@ t('明槓：不算門清、不算暗刻', () => {
   const r = tai({ ...base, seat: 1, tiles: P('123m456m789m123p22s'), win: 19, melds: [{ k: 'g', t: 31, open: true }] });
   assert(!names(r).includes('門清') && names(r).includes('箭牌'), names(r));
 });
-t('全求人+碰碰胡+獨聽 = 6', () => {
+t('全求人 2 + 碰碰胡 4 + 獨聽 1 = 7', () => {
   const m = [0, 1, 2, 9, 10].map(x => ({ k: 'p', t: x, open: true }));
-  const r = tai({ ...base, tiles: [18, 18], win: 18, melds: m }); assert.strictEqual(r.sum, 6, names(r));
+  const r = tai({ ...base, tiles: [18, 18], win: 18, melds: m });
+  assert.strictEqual(r.sum, 7, names(r));
+  assert.strictEqual(r.list.find(e => e.n === '全求人').t, 2);
 });
 t('含暗槓的 5 組面子不算全求人', () => {
   const m = [0, 1, 2, 9].map(x => ({ k: 'p', t: x, open: true })).concat({ k: 'g', t: 10, open: false });
@@ -107,6 +109,19 @@ t('吃牌的順子仍可算平胡（不是門清，只有平胡 2 台）', () =>
   assert.strictEqual(r.sum, 2, names(r));
 });
 t('天胡不算平胡', () => { assert(!names(tai({ ...base, seat: 0, self: true, tiles: h1, win: 14, special: '天胡' })).includes('平胡')); });
+t('花槓 2 台（春夏秋冬）：另計本家正花 1 台', () => {
+  const r = tai({ ...base, tiles: h1, win: 19, flowers: [34, 35, 36, 37] }); // seat 1 的正花＝夏(35)
+  assert.strictEqual(r.list.find(e => e.n === '花槓').t, 2, names(r)); assert(names(r).includes('正花'));
+  assert.strictEqual(r.sum, 1 + 1 + 2 + 1, names(r)); // 門清 1 + 獨聽 1 + 花槓 2 + 正花 1
+});
+t('梅蘭菊竹也算花槓 2 台', () => {
+  assert.strictEqual(tai({ ...base, tiles: h1, win: 19, flowers: [38, 39, 40, 41] }).list.find(e => e.n === '花槓').t, 2);
+});
+t('平胡要無花牌：有花不算平胡', () => {
+  const r = tai({ ...base, tiles: h1, win: 14, flowers: [35] }); // 兩面聽，但有 1 張花
+  assert(!names(r).includes('平胡'), names(r)); assert.strictEqual(r.sum, 2, names(r)); // 門清 1 + 正花 1
+  assert(!names(tai({ ...base, tiles: h1, win: 14, flowers: [34] })).includes('平胡')); // 非本家的花也一樣不算平胡
+});
 
 // ===== 圈風輪流（東南西北）：場風看圈風、本風看門風 =====
 t('南風圈：碰東不算場風（閒家）', () => {
