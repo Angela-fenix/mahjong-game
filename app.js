@@ -568,6 +568,7 @@ function finish(ws, d, from) {
   let out = '';
   const delta = [0, 0, 0, 0], sums = []; // 簡易結算：每台 1 分；自摸三家各付、放槍由放槍者付
   if (!ws.length) out = '<h2>流局</h2><p>牌牆剩 16 張，本局無人胡牌。</p>';
+
   ws.forEach(w => {
     let r, shown, names, shownHTML, winNote = '';
     if (w.flower) { // 八仙過海、七搶一：以 8 台計，不另計花牌台
@@ -603,18 +604,95 @@ function finish(ws, d, from) {
       `<div class="river">${shownHTML}${meldsHTML}</div>` + winNote +
       `<p>${names}</p><p><b>共 ${r.sum} 台</b>・${pay} ${r.sum} 分</p>`;
   });
+
   if (ws.length) out += `<p>分數變化：${SEAT.map((n, q) => `${n} ${delta[q] > 0 ? '+' : ''}${delta[q]}`).join('、')}</p>`;
   if (!ws.length) sfx('draw');
-  G.last = { delta, from, ws: ws.map(w => w.s), sums }; // 供自動測試統計強弱
+  G.last = {
+    delta, from, ws: ws.map(w => w.s), sums, // 供自動測試統計強弱
+    d, self: ws.map(w => !!w.self),
+    flower: ws.map(w => !!w.flower) // 供「看其他玩家牌組」補上放槍胡的那張牌
+  };
   recordResult(ws, from, delta, sums);
   say(ws.length ? '本局結束' : '流局');
-  $('result').innerHTML = `<div class="card">${out}<button id="again">再來一局</button><button id="lvToggle">難度：${LV[level]}</button><button id="showstats">戰績</button></div>`;
+
+  $('result').innerHTML = `<div class="card">${out}<button id="again">再來一局</button>
+    <button id="showhands">看其他玩家牌組</button>
+    <button id="lvToggle">難度：${LV[level]}</button>
+    <button id="showstats">戰績</button></div>`;
   $('result').hidden = false;
 }
 $('result').onclick = e => {
   if (e.target.id === 'again') start();
+  else if (e.target.id === 'showhands') showHands();
   else if (e.target.id === 'showstats') showStats();
   else if (e.target.id === 'lvToggle') { setLevel(level === 'hard' ? 'normal' : 'hard'); e.target.textContent = `難度：${LV[level]}`; }
+};
+
+// ===== 結算後查看其他三家的最終牌組 =====
+// 排法依序嘗試：①手牌＋副露同一排、花牌隔一格接在後面 ②花牌換行 ③牌數對半分兩排（副露不拆開）、花牌接在最後 ④花牌獨立一行
+let FH = [];
+const SPC = '<span class="fsp"></span>';
+function fhItems(s) {
+  const L = G.last || {}, i = (L.ws || []).indexOf(s);
+  const hand = G.hands[s].slice();
+  let win = null;
+
+  // 放槍胡（非自摸、非花牌胡）：胡的那張牌還在放槍者的牌河，手牌裡沒有，要補回來
+  if (i >= 0 && L.d != null && !L.self[i] && !L.flower[i]) { hand.push(L.d); win = L.d; }
+  hand.sort((a, b) => a - b);
+
+  let marked = win === null; // 沒有要標的牌就視為已標過
+  const items = hand.map(t => {
+    const hit = !marked && t === win; if (hit) marked = true;
+    return { n: 1, html: tileHTML(t, null, hit ? 'sm win' : 'sm') };
+  });
+
+  G.melds[s].forEach((m, k) =>
+    items.push({ n: meldTiles(m).length, html: meldHTML(m, false), sp: k === 0 })); // 手牌與副露之間隔一格
+
+  return { items, flw: { n: G.flowers[s].length, html: small(G.flowers[s]), sp: true } };
+}
+
+function fhRows(items, flw, mode) {
+  const f = flw.n ? [flw] : [];
+  if (mode === 'one') return [items.concat(f)];
+  if (mode === 'two') return [items, f];
+  const total = items.reduce((a, x) => a + x.n, 0), half = Math.ceil(total / 2);
+  let acc = 0, k = 0;
+  while (k < items.length && acc < half) acc += items[k++].n;
+  return mode === 'half' ? [items.slice(0, k), items.slice(k).concat(f)] : [items.slice(0, k), items.slice(k), f];
+}
+
+const fhRowHTML = r => `<div class="frow">${r.map((x, i) => (x.sp && i ? SPC : '') + x.html).join('')}</div>`;
+function layoutHands() {
+  $('hands').querySelectorAll('.fh').forEach((el, idx) => {
+    const p = FH[idx], box = el.querySelector('.rows');
+    for (const mode of ['one', 'two', 'half', 'half3']) {
+      if (!p.flw.n && (mode === 'two' || mode === 'half3')) continue; // 沒有花牌就不必試這兩種
+      box.innerHTML = fhRows(p.items, p.flw, mode).filter(r => r.length).map(fhRowHTML).join('');
+      if ([...box.querySelectorAll('.frow')].every(r => r.scrollWidth <= r.clientWidth + 1)) return;
+    }
+    box.querySelectorAll('.frow').forEach(r => r.classList.add('wrap')); // 極窄畫面的最後保險：允許自動折行
+  });
+}
+
+function showHands() {
+  const wins = new Set((G.last && G.last.ws) || []);
+  FH = [0, 1, 2, 3].map(fhItems);
+  const rows = [0, 1, 2, 3].map(s =>
+    `<div class="fh${wins.has(s) ? ' winner' : ''}">` +
+    `<div class="info">${SEAT[s]}・${WIND[(s - G.dealer + 4) % 4]}風` +
+    `${s === G.dealer ? '<span class="badge">莊</span>' : ''}` +
+    `${wins.has(s) ? '<span class="tag">胡牌</span>' : ''}</div><div class="rows"></div></div>`).join('');
+  $('hands').innerHTML = `<div class="card"><h2>其他玩家的牌組</h2>${rows}<button id="closehands">關閉</button></div>`;
+  $('hands').hidden = false; // 要先顯示才量得到寬度
+  layoutHands();
+}
+
+if (typeof window !== 'undefined')
+  window.addEventListener('resize', () => { if (!$('hands').hidden) layoutHands(); }); // 旋轉手機時重新排
+$('hands').onclick = e => {
+  if (e.target.id === 'closehands' || e.target === $('hands')) $('hands').hidden = true;
 };
 
 // ===== 戰績 =====
@@ -702,7 +780,7 @@ async function start() {
     hard: hardSeats(level),
     called: false, discards: 0, draws: [0, 0, 0, 0],
     hands: [[], [], [], []], melds: [[], [], [], []], flowers: [[], [], [], []], river: [[], [], [], []],
-    mark: [null, null, null, null]
+    mark: [null, null, null, null], tingOn: [], tingHold: [false, false, false, false] // 聽牌狀態每局重設，不能沿用上一局
   });
   render();
   await introDice(dice, sum);
@@ -739,6 +817,8 @@ async function resume() {
   );
 
   G.hard = hardSeats(G.level);
+  G.tingOn = [0, 1, 2, 3].map(s => isTenpai(s));
+  G.tingHold = [false, false, false, false]; // 讀檔時已聽牌者不再播浮水印
   render(); say('已讀取存檔，繼續遊戲');
   await sleep(800);
   await loop(sv.cur, sv.mode);
@@ -746,6 +826,7 @@ async function resume() {
 
 // ===== 開始遊戲：按下按鈕後才開局 =====
 for (let t = 0; t < 42; t++) new Image().src = `img/t${t}.webp`; // 預先載入牌圖
+
 $('go').onclick = () => { $('begin').hidden = true; start(); };
 $('lvNormal').onclick = () => setLevel('normal');
 $('lvHard').onclick = () => setLevel('hard');
@@ -753,7 +834,15 @@ setLevel(level);
 $('resume').onclick = () => { $('begin').hidden = true; resume(); };
 $('menu').onclick = $('statsBtn').onclick = showStats;
 $('intro').onclick = () => { G.skip = true; };
+
 const soundLabel = () => { $('sound').textContent = snd.on ? '🔊 音效' : '🔇 音效'; };
 $('sound').onclick = () => { snd.on = !snd.on; store.set('mj_sound', snd.on); soundLabel(); sfx('call'); };
 soundLabel();
-{ const sv = store.get(SAVE); if (sv && sv.v === 1) { $('resume').hidden = false; $('resume').textContent = `繼續上次遊戲（牌牆剩 ${sv.g.wall.length} 張）`; } }
+
+{
+  const sv = store.get(SAVE);
+  if (sv && sv.v === 1) {
+    $('resume').hidden = false;
+    $('resume').textContent = `繼續上次遊戲（牌牆剩 ${sv.g.wall.length} 張）`;
+  }
+}

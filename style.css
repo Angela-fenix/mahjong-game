@@ -948,3 +948,21 @@ button:focus-visible,
     letter-spacing: 0
   }
 }
+
+/* ===== 結算後查看其他玩家牌組 ===== */
+#hands { z-index: 12 }
+#hands .card { text-align: left; max-width: 760px }
+.fh { margin: 8px 0; padding: 8px; background: rgba(0, 0, 0, .08); border-radius: 8px }
+.fh.winner { outline: 3px solid #ffb703; outline-offset: -3px }
+.frow { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 2px; margin-top: 4px }
+.frow.wrap { flex-wrap: wrap }
+.frow > * { flex: none }
+.fsp { width: 12px }
+
+@media(max-height:520px) {
+  #hands .card { padding: 10px 14px }
+  #hands .card h2 { margin: 0 0 4px; font-size: 18px }
+  .fh { margin: 5px 0; padding: 5px 8px }
+  .fh .info { font-size: 12px }
+  #hands .card button { padding: 4px 12px; margin: 2px }
+}

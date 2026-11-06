@@ -91,3 +91,10 @@ assert(/class="tenpai">聽</.test(els.seat1.innerHTML), '摸牌後仍顯示');
 run('G.hands[1] = P("135m246m789m124p456p2s"); render()');
 assert(!/class="tenpai"/.test(els.seat1.innerHTML), '不再聽牌：取消標示');
 console.log('tenpai watermark ok');
+
+
+// 新的一局要重設聽牌狀態：上一局留下的「已聽牌」不能讓新局一開始就出現「聽」
+run('G.tingOn = [true, true, true, true]; G.tingHold = [true, true, true, true]');
+run('start()'); // 同步執行到第一個等待為止，此時已重設
+assert(run('G.tingOn.length') === 0 && run('G.tingHold.every(x => x === false)'), '開新局應重設聽牌狀態');
+console.log('tenpai reset on new game ok');
